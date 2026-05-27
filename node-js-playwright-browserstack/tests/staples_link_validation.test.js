@@ -123,13 +123,12 @@ function writeHtmlLog(filePath, summary, records, ts) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
-// sample.csv lives at the repo root (one level above link-validator/)
-// tests/ → link-validator/ → staples/ (root) → sample.csv
+// Support both local layout (../../sample.csv) and CI layout (../sample.csv or ./sample.csv)
 const CSV_PATH = (() => {
   const candidates = [
-    path.resolve(__dirname, '../../sample.csv'),  // staples/sample.csv (primary)
-    path.resolve(__dirname, '../sample.csv'),      // link-validator/sample.csv (fallback)
-    path.resolve(__dirname, 'sample.csv'),         // tests/sample.csv (fallback)
+    path.resolve(__dirname, '../sample.csv'),
+    path.resolve(__dirname, '../../sample.csv'),
+    path.resolve(__dirname, 'sample.csv'),
   ];
   return candidates.find(p => fs.existsSync(p)) || candidates[0];
 })();

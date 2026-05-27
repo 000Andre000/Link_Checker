@@ -26,10 +26,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: link-validator/package.json
+          cache-dependency-path: package.json
 
       - name: Install dependencies
-        working-directory: link-validator
         run: npm install
 
       - name: Show CSV being tested
@@ -39,7 +38,6 @@ jobs:
 
       - name: Run link validation on BrowserStack Automate
         id: run_tests
-        working-directory: link-validator
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -59,7 +57,6 @@ jobs:
 
       - name: Merge log files from all workers into one report
         id: find_logs
-        working-directory: link-validator
         run: |
           # Find all log dirs from this run
           ALL_DIRS=$(find . -type d -name 'link-checker-csv-*' 2>/dev/null | sort)
