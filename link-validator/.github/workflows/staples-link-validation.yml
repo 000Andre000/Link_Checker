@@ -1,0 +1,234 @@
+name: Staples Link Validation
+
+on:
+  push:
+    paths:
+      - 'sample.csv'
+      - 'tests/staples_link_validation.test.js'
+      - 'playwright.config.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-links:
+    name: Validate Staples Links on BrowserStack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: link-validator/package.json
+
+      - name: Install dependencies
+        working-directory: link-validator
+        run: npm install
+
+      - name: Show CSV being tested
+        run: |
+          echo "CSV file contents:"
+          cat sample.csv
+
+      - name: Run link validation on BrowserStack Automate
+        id: run_tests
+        working-directory: link-validator
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          npx browserstack-node-sdk playwright test tests/staples_link_validation.test.js \
+            --config=./playwright.config.js 2>&1 | tee test_output.txt
+
+          BUILD_URL=$(grep -oP 'https://automation\.browserstack\.com/builds/\S+' test_output.txt | head -1 || \
+                      grep -oP 'https://automate\.browserstack\.com/dashboard/v2/builds/\S+' test_output.txt | head -1 || \
+                      echo "Build URL not found")
+          echo "build_url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          echo "BrowserStack Build URL: ${BUILD_URL}"
+
+          # Show all log dirs created during this run
+          echo "Log directories found:"
+          find . -type d -name 'link-checker-csv-*' 2>/dev/null || echo "none"
+
+      - name: Merge log files from all workers into one report
+        id: find_logs
+        working-directory: link-validator
+        run: |
+          # Find all log dirs from this run
+          ALL_DIRS=$(find . -type d -name 'link-checker-csv-*' 2>/dev/null | sort)
+          echo "All log directories:"
+          echo "$ALL_DIRS"
+
+          if [ -z "$ALL_DIRS" ]; then
+            echo "WARNING: No log directories found"
+            echo "log_dir=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Merge all results.json files into one combined report
+          MERGED_DIR="./logs/link-checker-merged-$(date -u '+%Y-%m-%d_%H-%M-%S')"
+          mkdir -p "$MERGED_DIR"
+
+          node -e "
+            const fs = require('fs');
+            const dirs = \`$ALL_DIRS\`.trim().split('\n').filter(Boolean);
+            let allRecords = [];
+            for (const dir of dirs) {
+              const jsonFile = dir + '/results.json';
+              if (fs.existsSync(jsonFile)) {
+                try {
+                  const d = JSON.parse(fs.readFileSync(jsonFile, 'utf-8'));
+                  if (d.records && d.records.length > 0) {
+                    allRecords = allRecords.concat(d.records);
+                  }
+                } catch(e) { console.error('Failed to read', jsonFile, e.message); }
+              }
+            }
+            // Deduplicate by url
+            const seen = new Set();
+            allRecords = allRecords.filter(r => {
+              if (seen.has(r.url)) return false;
+              seen.add(r.url);
+              return true;
+            });
+            const passed = allRecords.filter(r => r.ok).length;
+            const summary = { mode: 'csv', total: allRecords.length, passed, failed: allRecords.length - passed };
+            const out = { summary, records: allRecords, generatedAt: new Date().toISOString() };
+            fs.writeFileSync('${MERGED_DIR}/results.json', JSON.stringify(out, null, 2));
+            console.log('Merged', allRecords.length, 'records from', dirs.length, 'workers');
+          "
+
+          # Generate merged HTML from the merged JSON
+          node -e "
+            const fs = require('fs');
+            const d = JSON.parse(fs.readFileSync('${MERGED_DIR}/results.json', 'utf-8'));
+            const s = d.summary;
+            const esc = str => String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');
+            const rows = d.records.map((r,i) => {
+              const bg = i%2===0?'#f9f9f9':'#fff';
+              const st = r.ok?'<span style=\"color:green\">&#10003; OK</span>':'<span style=\"color:red\">&#10007; FAIL</span>';
+              const mt = r.urlMatched?'<span style=\"color:green\">&#10003; Match</span>':'<span style=\"color:red\">&#10007; Mismatch</span>';
+              const er = r.errors.length===0?'<span style=\"color:green\">None</span>':r.errors.map(e=>esc(e)).join('<br>');
+              return '<tr style=\"background:'+bg+'\"><td>'+(i+1)+'</td><td>'+esc(r.source)+'</td><td style=\"word-break:break-all\"><a href=\"'+esc(r.url)+'\" target=\"_blank\">'+esc(r.url)+'</a></td><td>'+st+'</td><td>'+r.httpStatus+'</td><td>'+esc(r.pageTitle)+'</td><td>'+r.loadTimeMs+' ms</td><td style=\"word-break:break-all\">'+esc(r.beforeUrl)+'</td><td style=\"word-break:break-all\">'+esc(r.destinationUrl)+'</td><td style=\"word-break:break-all\">'+esc(r.afterUrl)+'</td><td>'+mt+'<br><small>'+esc(r.expectedDestination)+'</small></td><td style=\"color:'+(r.errors.length?'red':'green')+';word-break:break-all\">'+er+'</td></tr>';
+            }).join('');
+            const html = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Link Checker Report</title><style>body{font-family:Arial,sans-serif;margin:20px}h1{color:#333}.summary{background:#eef;padding:12px;border-radius:6px;margin-bottom:20px}.summary span{margin-right:20px;font-weight:bold}table{border-collapse:collapse;width:100%;font-size:13px}th{background:#333;color:#fff;padding:8px;text-align:left}td{padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top}a{color:#0066cc}</style></head><body><h1>Link Checker Report</h1><div class=\"summary\"><span>Generated: '+new Date().toLocaleString()+'</span><span>Mode: csv</span><span>Total: '+s.total+'</span><span style=\"color:green\">Passed: '+s.passed+'</span><span style=\"color:red\">Failed: '+s.failed+'</span></div><table><thead><tr><th>#</th><th>Source</th><th>URL (Source)</th><th>Status</th><th>HTTP</th><th>Page Title</th><th>Load Time</th><th>Before URL</th><th>Destination URL</th><th>After URL (after Back)</th><th>URL Match vs CSV</th><th>Errors</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>';
+            fs.writeFileSync('${MERGED_DIR}/results.html', html);
+            console.log('HTML report written');
+          "
+
+          echo "log_dir=${MERGED_DIR}" >> $GITHUB_OUTPUT
+          echo "Merged log directory: ${MERGED_DIR}"
+          ls -la "${MERGED_DIR}"
+
+      - name: Upload HTML report
+        if: steps.find_logs.outputs.log_dir != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-validation-html-report
+          path: ${{ steps.find_logs.outputs.log_dir }}/results.html
+          retention-days: 30
+
+      - name: Upload JSON report
+        if: steps.find_logs.outputs.log_dir != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-validation-json-report
+          path: ${{ steps.find_logs.outputs.log_dir }}/results.json
+          retention-days: 30
+
+      - name: Deploy HTML report to GitHub Pages
+        if: steps.find_logs.outputs.log_dir != ''
+        run: |
+          LOG_DIR="${{ steps.find_logs.outputs.log_dir }}"
+          BUILD_URL="${{ steps.run_tests.outputs.build_url }}"
+          RUN_TS="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          RUN_SLUG="$(date -u '+%Y-%m-%d_%H-%M-%S')"
+          REPO="${{ github.repository }}"
+          PAGES_URL="https://$(echo $REPO | cut -d'/' -f1).github.io/$(echo $REPO | cut -d'/' -f2)"
+
+          # Clone existing gh-pages branch to preserve history
+          git clone --depth=1 --branch gh-pages \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            /tmp/gh-pages 2>/dev/null || (mkdir -p /tmp/gh-pages && cd /tmp/gh-pages && git init)
+
+          mkdir -p /tmp/gh-pages/reports
+
+          # Write this run's report with BrowserStack banner
+          node -e "
+            const fs = require('fs');
+            let html = fs.readFileSync('${LOG_DIR}/results.html', 'utf8');
+            const banner = '<div style=\"background:#cc0000;color:#fff;padding:10px 20px;font-family:Arial,sans-serif;font-size:14px\">' +
+              '<strong>Run:</strong> ${RUN_TS} &nbsp;|&nbsp; ' +
+              '<strong>BrowserStack Build:</strong> <a href=\"${BUILD_URL}\" style=\"color:#fff\" target=\"_blank\">${BUILD_URL}</a>' +
+              '</div>';
+            html = html.replace('<body>', '<body>' + banner);
+            fs.writeFileSync('/tmp/gh-pages/reports/${RUN_SLUG}.html', html);
+          "
+
+          # Rebuild index.html listing all runs
+          node -e "
+            const fs = require('fs');
+            const reports = fs.readdirSync('/tmp/gh-pages/reports')
+              .filter(f => f.endsWith('.html'))
+              .sort()
+              .reverse();
+            const rows = reports.map((f, i) => {
+              const slug = f.replace('.html', '');
+              const label = slug.replace(/_/g, ' ').replace(/-/g, '-');
+              return '<tr><td>' + (i+1) + '</td><td><a href=\"reports/' + f + '\">' + label + '</a></td></tr>';
+            }).join('');
+            const html = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Staples Link Validation Reports</title>' +
+              '<style>body{font-family:Arial,sans-serif;margin:20px}h1{color:#cc0000}' +
+              'table{border-collapse:collapse;width:600px}th{background:#333;color:#fff;padding:8px;text-align:left}' +
+              'td{padding:8px;border-bottom:1px solid #ddd}a{color:#0066cc}</style></head>' +
+              '<body><h1>Staples Link Validation Reports</h1>' +
+              '<p>All runs — click a report to view results.</p>' +
+              '<table><thead><tr><th>#</th><th>Run</th></tr></thead><tbody>' + rows + '</tbody></table></body></html>';
+            fs.writeFileSync('/tmp/gh-pages/index.html', html);
+          "
+
+          cd /tmp/gh-pages
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          git commit -m "Add report for ${RUN_TS}" || echo "Nothing to commit"
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:gh-pages
+
+      - name: Print summary
+        run: |
+          LOG_DIR="${{ steps.find_logs.outputs.log_dir }}"
+          BUILD_URL="${{ steps.run_tests.outputs.build_url }}"
+          REPO="${{ github.repository }}"
+          PAGES_URL="https://$(echo $REPO | cut -d'/' -f1).github.io/$(echo $REPO | cut -d'/' -f2)"
+          {
+            echo "## Staples Link Validation Results"
+            echo ""
+            echo "### BrowserStack Automate Build"
+            echo "[${BUILD_URL}](${BUILD_URL})"
+            echo ""
+            echo "### HTML Report (Live)"
+            echo "[Open HTML Report](${PAGES_URL})"
+            echo ""
+            echo "### Reports"
+            echo "- Download **link-validation-html-report** artifact for the HTML report"
+            echo "- Download **link-validation-json-report** artifact for the JSON report"
+            echo ""
+            if [ -n "$LOG_DIR" ] && [ -f "${LOG_DIR}/results.json" ]; then
+              echo "### Results Summary"
+              node -e "
+                const fs = require('fs');
+                const d = JSON.parse(fs.readFileSync(process.argv[1]));
+                const s = d.summary;
+                console.log('| Total | Passed | Failed |');
+                console.log('|-------|--------|--------|');
+                console.log('| ' + s.total + ' | ' + s.passed + ' | ' + s.failed + ' |');
+              " "${LOG_DIR}/results.json"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
