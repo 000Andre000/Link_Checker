@@ -1,0 +1,81 @@
+{
+  "summary": {
+    "mode": "csv",
+    "total": 5,
+    "passed": 5,
+    "failed": 0
+  },
+  "records": [
+    {
+      "url": "https://www.staples.com/party-supplies/cat_SC350593?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_5OffPartySupplies_P_HP_SLOT_2_SEQ_2_Cat_Breakroom_Asset_4BY_P3W3-W4",
+      "source": "csv",
+      "ok": true,
+      "httpStatus": 200,
+      "pageTitle": "Party Supplies | Staples",
+      "loadTimeMs": 4871,
+      "beforeUrl": "https://www.staples.com/party-supplies/cat_SC350593?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_5OffPartySupplies_P_HP_SLOT_2_SEQ_2_Cat_Breakroom_Asset_4BY_P3W3-W4",
+      "afterUrl": "https://www.staples.com/party-supplies/cat_SC350593?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_5OffPartySupplies_P_HP_SLOT_2_SEQ_2_Cat_Breakroom_Asset_4BY_P3W3-W4",
+      "afterBackUrl": "about:blank",
+      "expectedDestination": "https://www.staples.com/party-supplies/cat_SC350593",
+      "urlMatched": true,
+      "errors": []
+    },
+    {
+      "url": "https://www.staples.com/gift-shop/cat_SC1699?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_Graduation_Pro_GradGifts_P_HP_SLOT_1_SEQ_3_Cat_All_Asset_Sliver_P3W2-W4",
+      "source": "csv",
+      "ok": true,
+      "httpStatus": 200,
+      "pageTitle": "Staples Gift Shop",
+      "loadTimeMs": 4157,
+      "beforeUrl": "https://www.staples.com/gift-shop/cat_SC1699?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_Graduation_Pro_GradGifts_P_HP_SLOT_1_SEQ_3_Cat_All_Asset_Sliver_P3W2-W4",
+      "afterUrl": "https://www.staples.com/gift-shop/cat_SC1699?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_Graduation_Pro_GradGifts_P_HP_SLOT_1_SEQ_3_Cat_All_Asset_Sliver_P3W2-W4",
+      "afterBackUrl": "about:blank",
+      "expectedDestination": "https://www.staples.com/gift-shop/cat_SC1699",
+      "urlMatched": true,
+      "errors": []
+    },
+    {
+      "url": "https://www.staples.com/printer-ink-cartridges-toner-finder/cat_SC43?ivid=Pg:B;Pl:LP;Pt:B;Cmp:Cam_TopDeals_Pro_15BIPInkandToner_HP_SLOT_1_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "source": "csv",
+      "ok": true,
+      "httpStatus": 200,
+      "pageTitle": "Printer Ink & Toner Cartridges | Staples",
+      "loadTimeMs": 3135,
+      "beforeUrl": "https://www.staples.com/printer-ink-cartridges-toner-finder/cat_SC43?ivid=Pg:B;Pl:LP;Pt:B;Cmp:Cam_TopDeals_Pro_15BIPInkandToner_HP_SLOT_1_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterUrl": "https://www.staples.com/printer-ink-cartridges-toner-finder/cat_SC43?ivid=Pg:B;Pl:LP;Pt:B;Cmp:Cam_TopDeals_Pro_15BIPInkandToner_HP_SLOT_1_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterBackUrl": "about:blank",
+      "expectedDestination": "https://www.staples.com/printer-ink-cartridges-toner-finder/cat_SC43",
+      "urlMatched": true,
+      "errors": []
+    },
+    {
+      "url": "https://www.staples.com/hp-17-3-fhd-laptop-intel-core-i3-n305-8gb-ram-512gb-ssd-9-5-hours-battery-windows-11-home/product_24631637?IPID=NGAM;12283680&ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_399.99HPLaptopSMN_P_HP_SLOT_4_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "source": "csv",
+      "ok": true,
+      "httpStatus": 200,
+      "pageTitle": "HP 17.3\" FHD Laptop, Intel Core i3-N305, 8GB RAM, 512GB SSD, +9.5 hours battery, Windows 11 Home | Staples",
+      "loadTimeMs": 3404,
+      "beforeUrl": "https://www.staples.com/hp-17-3-fhd-laptop-intel-core-i3-n305-8gb-ram-512gb-ssd-9-5-hours-battery-windows-11-home/product_24631637?IPID=NGAM;12283680&ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_399.99HPLaptopSMN_P_HP_SLOT_4_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterUrl": "https://www.staples.com/hp-17-3-fhd-laptop-intel-core-i3-n305-8gb-ram-512gb-ssd-9-5-hours-battery-windows-11-home/product_24631637?IPID=NGAM;12283680&ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_399.99HPLaptopSMN_P_HP_SLOT_4_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterBackUrl": "about:blank",
+      "expectedDestination": "https://www.staples.com/hp-17-3-fhd-laptop-intel-core-i3-n305-8gb-ram-512gb-ssd-9-5-hours-battery-windows-11-home/product_24631637",
+      "urlMatched": true,
+      "errors": []
+    },
+    {
+      "url": "https://www.staples.com/deals/printer-deals/BI3001697?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_PrinterDeals_P_HP_SLOT_5_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "source": "csv",
+      "ok": true,
+      "httpStatus": 200,
+      "pageTitle": "Printer Deals | Staples",
+      "loadTimeMs": 3166,
+      "beforeUrl": "https://www.staples.com/deals/printer-deals/BI3001697?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_PrinterDeals_P_HP_SLOT_5_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterUrl": "https://www.staples.com/deals/printer-deals/BI3001697?ivid=Pg:B;Pl:HP;Pt:B;Cmp:Cam_TopDeals_Pro_PrinterDeals_P_HP_SLOT_5_SEQ_6_Cat_Tech_Asset_4BY_P3W3-W4",
+      "afterBackUrl": "about:blank",
+      "expectedDestination": "https://www.staples.com/deals/printer-deals/BI3001697",
+      "urlMatched": true,
+      "errors": []
+    }
+  ],
+  "generatedAt": "2026-05-27T12:12:01.637Z"
+}

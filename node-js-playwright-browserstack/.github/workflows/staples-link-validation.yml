@@ -5,7 +5,6 @@ on:
     paths:
       - 'sample.csv'
       - 'tests/staples_link_validation.test.js'
-      - 'playwright.config.js'
   workflow_dispatch:
 
 permissions:
