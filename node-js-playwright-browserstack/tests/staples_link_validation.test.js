@@ -100,7 +100,7 @@ function writeHtmlLog(filePath, summary, records, ts) {
 <body>
   <h1>Link Checker Report</h1>
   <div class="summary">
-    <span>Generated: ${new Date().toLocaleString()}</span>
+    <span>Generated: ${new Date().toUTCString()}</span>
     <span>Mode: csv</span>
     <span>Total: ${summary.total}</span>
     <span style="color:green">Passed: ${summary.passed}</span>
