@@ -1,0 +1,71 @@
+name: tc-run (free-form CLI)
+
+# Runs the Test Companion CLI exactly like the terminal: tc run "<prompt>".
+# No testcompanion-pipeline.yml binding is needed.
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'What should tc do? (same text you would give `tc run`)'
+        required: true
+        default: 'Run the Playwright tests in node-js-playwright-browserstack on BrowserStack and summarize the results'
+      max_time:
+        description: 'Cancel after this long (e.g. 20m)'
+        required: false
+        default: '20m'
+
+jobs:
+  tc-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      TC_PIN_VERSION: ${{ vars.TC_PIN_VERSION }}
+      TC_SHA256: ${{ vars.TC_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        working-directory: node-js-playwright-browserstack
+        run: npm install
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.email "tc-ci@users.noreply.github.com"
+          git config --global user.name "tc-ci"
+
+      - name: Install tc
+        run: |
+          curl -fsSL -o /tmp/tc-install.sh https://test-companion.browserstack.com/cli/install.sh
+          TC_VERSION="$TC_PIN_VERSION" sh /tmp/tc-install.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Sign in
+        timeout-minutes: 2
+        run: tc auth login
+
+      # The prompt goes through env, never inline in the shell command (free text can inject commands).
+      - name: tc run
+        env:
+          TC_PROMPT: ${{ inputs.prompt }}
+          TC_MAX_TIME: ${{ inputs.max_time }}
+        run: |
+          tc run "$TC_PROMPT" --yolo --json --max-time "$TC_MAX_TIME" \
+            --trace tc-trace.json | tee tc-output.ndjson
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tc-run-output
+          path: |
+            tc-output.ndjson
+            tc-trace.json
+          if-no-files-found: ignore
