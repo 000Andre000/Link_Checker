@@ -1,72 +1,90 @@
-name: Test Companion (tc)
+name: tc-workflow
 
+# Event-driven Test Companion CLI pipeline (see testcompanion-pipeline.yml).
+#   - PR merged to main  -> `tc workflow run test`  (runs the suite on BrowserStack)
+#   - Manual dispatch    -> same workflow, on demand
+#   - Failure above      -> `tc workflow run rca`   (root-cause analysis)
 on:
+  pull_request:
+    types: [closed]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      prompt:
-        description: 'Task for tc to run'
-        required: true
-        default: 'Review the Staples link validation tests in node-js-playwright-browserstack/tests and report any issues'
-      tc_version:
-        description: 'tc CLI version to install'
-        required: true
-        default: '1.1.17'
-
-permissions:
-  contents: read
 
 jobs:
-  tc-run:
-    name: Run tc task
+  run-tc:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-      TC_NO_AUTO_UPGRADE: '1'
-
+      # Pin the CLI (set these as repository variables; see README below).
+      TC_PIN_VERSION: ${{ vars.TC_PIN_VERSION }}
+      TC_SHA256: ${{ vars.TC_SHA256 }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Install project dependencies
         working-directory: node-js-playwright-browserstack
         run: npm install
 
+      # GitHub-hosted runners set no Git identity; tc needs one.
+      - name: Configure Git identity
+        run: |
+          git config --global user.email "tc-ci@users.noreply.github.com"
+          git config --global user.name "tc-ci"
+
       - name: Install tc
-        env:
-          TC_VERSION: ${{ inputs.tc_version }}
         run: |
-          set -euo pipefail
-          OS=linux
-          ARCH=amd64   # ubuntu-latest is x64; the installer used darwin-arm64 locally
-          URL="https://test-companion.browserstack.com/cli/${TC_VERSION}/${OS}-${ARCH}.tar.gz"
-          mkdir -p "$HOME/.local/bin" /tmp/tc
-          curl -fsSL "$URL" -o /tmp/tc/tc.tar.gz
-          tar -xzf /tmp/tc/tc.tar.gz -C /tmp/tc
-          install -m 0755 "$(find /tmp/tc -type f -name tc | head -1)" "$HOME/.local/bin/tc"
+          curl -fsSL -o /tmp/tc-install.sh https://test-companion.browserstack.com/cli/install.sh
+          TC_VERSION="$TC_PIN_VERSION" sh /tmp/tc-install.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/tc" version
 
-      - name: Sign in to BrowserStack (headless)
-        run: tc auth login --username "$BROWSERSTACK_USERNAME" --access-key "$BROWSERSTACK_ACCESS_KEY"
+      - name: Sign in
+        timeout-minutes: 2
+        run: tc auth login
 
-      - name: Run tc task
-        working-directory: node-js-playwright-browserstack
+      - name: Run tc workflow (test)
+        id: tc_test
         env:
-          TC_PROMPT: ${{ inputs.prompt }}
+          TC_SHA: ${{ github.sha }}
+          TC_BASE_BRANCH: ${{ github.event.pull_request.base.ref || github.ref_name }}
         run: |
-          tc run "$TC_PROMPT" --yolo --json --max-time 30m | tee tc-output.ndjson
+          tc workflow run test --event pr_merged \
+            --context "sha=$TC_SHA,branch=$TC_BASE_BRANCH,instructions=Run the Playwright suite in node-js-playwright-browserstack (ecommerce_store.test.js and staples_link_validation.test.js)" \
+            --json --yolo --max-time 25m \
+            --summary-file tc-summary.md
 
-      - name: Upload tc output
+      - name: Run tc workflow (rca on failure)
+        if: failure() && steps.tc_test.outcome == 'failure'
+        env:
+          TC_BUILD: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          tc workflow run rca --event build_failed \
+            --context "build=$TC_BUILD" \
+            --json --yolo --max-time 10m \
+            --summary-file tc-rca-summary.md
+
+      - name: Publish summary
         if: always()
-        uses: actions/upload-artifact@v4
+        run: |
+          cat tc-summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          cat tc-rca-summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: tc-output
-          path: node-js-playwright-browserstack/tc-output.ndjson
-          retention-days: 14
+          name: tc-summary
+          path: |
+            tc-summary.md
+            tc-rca-summary.md
+          if-no-files-found: ignore

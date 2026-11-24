@@ -1,0 +1,15 @@
+workflows:
+  # Run the Playwright suite on BrowserStack for every merged PR to main.
+  - name: test-on-merge
+    workflow: test
+    on: pr_merged
+    when: { branches: [main] }
+    limits: { time: 25m, cost_usd: 5 }
+    enabled: true
+
+  # Root-cause analysis whenever a build fails.
+  - name: rca-on-fail
+    workflow: rca
+    on: build_failed
+    limits: { time: 10m, cost_usd: 3 }
+    enabled: true

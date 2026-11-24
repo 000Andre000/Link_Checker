@@ -1,6 +1,6 @@
 const config = {
   testDir: './',
-  testMatch: 'tests/staples_link_validation.test.js',
+  testMatch: ['tests/staples_link_validation.test.js', 'tests/ecommerce_store.test.js'],
 
   /* Generous timeout for BrowserStack remote browsers */
   timeout: 120 * 1000,
