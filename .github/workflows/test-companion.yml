@@ -1,0 +1,72 @@
+name: Test Companion (tc)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Task for tc to run'
+        required: true
+        default: 'Review the Staples link validation tests in node-js-playwright-browserstack/tests and report any issues'
+      tc_version:
+        description: 'tc CLI version to install'
+        required: true
+        default: '1.1.17'
+
+permissions:
+  contents: read
+
+jobs:
+  tc-run:
+    name: Run tc task
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      TC_NO_AUTO_UPGRADE: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: node-js-playwright-browserstack
+        run: npm install
+
+      - name: Install tc
+        env:
+          TC_VERSION: ${{ inputs.tc_version }}
+        run: |
+          set -euo pipefail
+          OS=linux
+          ARCH=amd64   # ubuntu-latest is x64; the installer used darwin-arm64 locally
+          URL="https://test-companion.browserstack.com/cli/${TC_VERSION}/${OS}-${ARCH}.tar.gz"
+          mkdir -p "$HOME/.local/bin" /tmp/tc
+          curl -fsSL "$URL" -o /tmp/tc/tc.tar.gz
+          tar -xzf /tmp/tc/tc.tar.gz -C /tmp/tc
+          install -m 0755 "$(find /tmp/tc -type f -name tc | head -1)" "$HOME/.local/bin/tc"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/tc" version
+
+      - name: Sign in to BrowserStack (headless)
+        run: tc auth login --username "$BROWSERSTACK_USERNAME" --access-key "$BROWSERSTACK_ACCESS_KEY"
+
+      - name: Run tc task
+        working-directory: node-js-playwright-browserstack
+        env:
+          TC_PROMPT: ${{ inputs.prompt }}
+        run: |
+          tc run "$TC_PROMPT" --yolo --json --max-time 30m | tee tc-output.ndjson
+
+      - name: Upload tc output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tc-output
+          path: node-js-playwright-browserstack/tc-output.ndjson
+          retention-days: 14
